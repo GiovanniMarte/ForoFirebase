@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "86517694052",
+    "project_id": "foro2021-df878",
+    "storage_bucket": "foro2021-df878.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:86517694052:android:4582b49a7b7c63a8e62971",
+        "android_client_info": {
+          "package_name": "net.azarquiel.forofirebase"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "86517694052-giatgmqbs07dkbo7lepqe1m39lde6v1i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbTK4thue1JM6K-TSJ7sMdDbdp4g2Uk7E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "86517694052-giatgmqbs07dkbo7lepqe1m39lde6v1i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

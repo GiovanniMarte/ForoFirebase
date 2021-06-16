@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:clickable="true"
+    android:focusable="true"
+    android:layout_height="70dp"
+    android:layout_width="match_parent"
+    android:onClick="onClickTema"
+    android:layout_margin="8dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:id="@+id/tvTema"
+        android:text="Ejemplo"
+        android:textAppearance="?attr/textAppearanceHeadline6"
+        />
+
+    </com.google.android.material.card.MaterialCardView>
