@@ -37,7 +37,12 @@ class ComentariosActivity : AppCompatActivity() {
 
         initRV()
         setListener()
+        getUserData()
         binding.fabComments.setOnClickListener { showDialog() }
+    }
+
+    private fun getUserData() {
+
     }
 
     private fun initRV() {
@@ -94,7 +99,7 @@ class ComentariosActivity : AppCompatActivity() {
     private fun addPost(texto: String) {
         val post: MutableMap<String, Any> = HashMap()
         val id = db.collection("temas").document(tema.id).collection("posts").document().id
-        val sdf = SimpleDateFormat("dd/MM/yyyy HH24:mm:ss")
+        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
         val date = sdf.format(Date())
         post["id"] = id
         post["fecha"] = date

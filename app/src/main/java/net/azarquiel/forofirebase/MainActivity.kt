@@ -4,11 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
-import androidx.appcompat.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -21,16 +21,20 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
 import net.azarquiel.forofirebase.adapter.TemaAdapter
 import net.azarquiel.forofirebase.databinding.ActivityMainBinding
 import net.azarquiel.forofirebase.model.Tema
-import net.azarquiel.forofirebase.model.User
+
 
 class MainActivity : AppCompatActivity() {
     companion object {
         const val TAG = "::tag"
+        const val RC_SIGN_IN = 1000
     }
 
+    private lateinit var icLogin: MenuItem
     private lateinit var auth: FirebaseAuth
     private lateinit var googleSignInClient: GoogleSignInClient
     private lateinit var dialogView: View
@@ -46,31 +50,46 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
 
         db = FirebaseFirestore.getInstance()
+        auth = FirebaseAuth.getInstance()
         initRV()
         setListener()
-        googleSignIn()
+        getSignInClient()
         onStart()
 
         binding.fab.setOnClickListener { showDialog() }
+        binding.btnUpload.setOnClickListener { chooseImg() }
     }
 
-    private fun googleSignIn() {
+    private fun chooseImg() {
+        if (auth.currentUser == null) {
+            Toast.makeText(this, "Debes iniciar sesión", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val intent = Intent(Intent.ACTION_GET_CONTENT)
+        intent.type = "image/*"
+        startActivityForResult(intent, 1)
+    }
+
+    private fun getSignInClient() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
-        auth = FirebaseAuth.getInstance()
     }
 
     override fun onStart() {
         super.onStart()
         // Check if user is signed in (non-null) and update UI accordingly.
-         val user = auth.currentUser
-        updateUI(user)
+        val currentUser = auth.currentUser
+        //updateUI(currentUser)
     }
 
     fun onClickTema(v: View) {
+        if (auth.currentUser == null) {
+            Toast.makeText(this, "Debes iniciar sesión", Toast.LENGTH_SHORT).show()
+            return
+        }
         val tema = v.tag as Tema
         val intent = Intent(this, ComentariosActivity::class.java)
         intent.putExtra("tema", tema)
@@ -84,6 +103,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDialog() {
+        if (auth.currentUser == null) {
+            Toast.makeText(this, "Debes iniciar sesión", Toast.LENGTH_SHORT).show()
+            return
+        }
         dialogView = LayoutInflater.from(this).inflate(R.layout.alert_dialog, null, false)
         val etDescripcion = dialogView.findViewById<TextInputEditText>(R.id.etDescripcion)
 
@@ -141,6 +164,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
+        icLogin = menu.findItem(R.id.login)
         return true
     }
 
@@ -150,11 +174,11 @@ class MainActivity : AppCompatActivity() {
         // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
             R.id.login -> {
-                signIn()
-                true
-            }
-            R.id.logout -> {
-                signOut()
+                auth.currentUser?.let {
+                    signOut()
+                } ?: run {
+                    signIn()
+                }
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -162,23 +186,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun signOut() {
+        // Firebase sign out
         auth.signOut()
+
+        // Google sign out
         googleSignInClient.signOut().addOnCompleteListener(this) {
+            Toast.makeText(this, "Has cerrado sesión", Toast.LENGTH_SHORT).show()
             updateUI(null)
         }
-        Toast.makeText(this, "Logged out", Toast.LENGTH_LONG).show()
     }
 
     private fun signIn() {
         val signInIntent = googleSignInClient.signInIntent
-        startActivityForResult(signInIntent, 100)
+        startActivityForResult(signInIntent, RC_SIGN_IN)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        // Result returned from launching the Intent from GoogleSignInApi.getSignInIntent(...);
-        if (requestCode == 100) {
+        // Result returned from launching the Intent from GoogleSignInApi.getSignInIntent(...)
+        if (requestCode == RC_SIGN_IN) {
             val task = GoogleSignIn.getSignedInAccountFromIntent(data)
             try {
                 // Google Sign In was successful, authenticate with Firebase
@@ -189,6 +216,8 @@ class MainActivity : AppCompatActivity() {
                 // Google Sign In failed, update UI appropriately
                 Log.w(TAG, "Google sign in failed", e)
             }
+        } else if (requestCode == 1) {
+
         }
     }
 
@@ -200,7 +229,6 @@ class MainActivity : AppCompatActivity() {
                     // Sign in success, update UI with the signed-in user's information
                     Log.d(TAG, "signInWithCredential:success")
                     val user = auth.currentUser
-                    addUser(user)
                     updateUI(user)
                 } else {
                     // If sign in fails, display a message to the user.
@@ -210,24 +238,13 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    private fun addUser(user: User) {
-        val user: MutableMap<String, Any> = HashMap()
-//        val id = db.collection("users").document().id
-//        tema["id"] = id
-//        tema["descripcion"] = descripcion
-//        db.collection("users").document(id).set(tema)
-//            .addOnSuccessListener {
-//                Log.d(TAG, "DocumentSnapshot added successfully")
-//            }
-//            .addOnFailureListener { e ->
-//                Log.w(TAG, "Error adding document", e)
-//            }
-    }
-
     private fun updateUI(user: FirebaseUser?) {
         user?.let {
-            Toast.makeText(this, "user: ${user.uid}, email: ${user.email}", Toast.LENGTH_LONG)
+            icLogin.setIcon(R.drawable.ic_baseline_exit_to_app_24)
+            Toast.makeText(this, "user: ${user.uid}, email: ${user.email}", Toast.LENGTH_SHORT)
                 .show()
+        } ?: run {
+            icLogin.setIcon(R.drawable.ic_baseline_login_24)
         }
     }
 }
