@@ -1,12 +1,15 @@
 package net.azarquiel.forofirebase
 
+import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -31,9 +34,12 @@ import net.azarquiel.forofirebase.model.Tema
 class MainActivity : AppCompatActivity() {
     companion object {
         const val TAG = "::tag"
-        const val RC_SIGN_IN = 1000
+        const val RC_SIGN_IN = 1
+        const val GALLERY_REQUEST_CODE = 2
     }
 
+    private lateinit var img: Uri
+    private lateinit var storageRef: StorageReference
     private lateinit var icLogin: MenuItem
     private lateinit var auth: FirebaseAuth
     private lateinit var googleSignInClient: GoogleSignInClient
@@ -51,23 +57,20 @@ class MainActivity : AppCompatActivity() {
 
         db = FirebaseFirestore.getInstance()
         auth = FirebaseAuth.getInstance()
+        storageRef = FirebaseStorage.getInstance().reference
         initRV()
         setListener()
         getSignInClient()
         onStart()
 
         binding.fab.setOnClickListener { showDialog() }
-        binding.btnUpload.setOnClickListener { chooseImg() }
+        binding.btnUpload.setOnClickListener { selectImg() }
     }
 
-    private fun chooseImg() {
-        if (auth.currentUser == null) {
-            Toast.makeText(this, "Debes iniciar sesión", Toast.LENGTH_SHORT).show()
-            return
-        }
+    private fun selectImg() {
         val intent = Intent(Intent.ACTION_GET_CONTENT)
         intent.type = "image/*"
-        startActivityForResult(intent, 1)
+        startActivityForResult(Intent.createChooser(intent, "Please select..."), GALLERY_REQUEST_CODE)
     }
 
     private fun getSignInClient() {
@@ -82,7 +85,7 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         // Check if user is signed in (non-null) and update UI accordingly.
         val currentUser = auth.currentUser
-        //updateUI(currentUser)
+        updateUI(currentUser)
     }
 
     fun onClickTema(v: View) {
@@ -93,6 +96,8 @@ class MainActivity : AppCompatActivity() {
         val tema = v.tag as Tema
         val intent = Intent(this, ComentariosActivity::class.java)
         intent.putExtra("tema", tema)
+        intent.putExtra("email", auth.currentUser!!.email)
+        intent.putExtra("uid", auth.currentUser!!.uid)
         startActivity(intent)
     }
 
@@ -116,7 +121,6 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Añadir") { dialog, _ ->
 
                 val descripcion = etDescripcion.text.toString()
-
                 addTema(descripcion)
 
                 dialog.dismiss()
@@ -175,7 +179,7 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.login -> {
                 auth.currentUser?.let {
-                    signOut()
+                    signOutDialog()
                 } ?: run {
                     signIn()
                 }
@@ -183,6 +187,18 @@ class MainActivity : AppCompatActivity() {
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    private fun signOutDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Cerrar sesión")
+            .setMessage("¿Desea cerrar sesión?")
+            .setNegativeButton("Cancelar") { _, _ ->
+            }
+            .setPositiveButton("Aceptar") { _, _ ->
+                signOut()
+            }
+            .show()
     }
 
     private fun signOut() {
@@ -216,9 +232,29 @@ class MainActivity : AppCompatActivity() {
                 // Google Sign In failed, update UI appropriately
                 Log.w(TAG, "Google sign in failed", e)
             }
-        } else if (requestCode == 1) {
-
+        } else if (requestCode == GALLERY_REQUEST_CODE && resultCode == Activity.RESULT_OK && data != null && data.data != null) {
+            val fileUri = data.data
+            fileUri?.let { uploadImageToFirebase(it) }
         }
+    }
+
+    private fun uploadImageToFirebase(fileUri: Uri) {
+        binding.progressBar.visibility = View.VISIBLE
+        val refStorage = storageRef.child("fotos/${auth.currentUser!!.uid}.jpeg")
+        refStorage.putFile(fileUri)
+            .addOnSuccessListener { taskSnapshot ->
+                taskSnapshot.storage.downloadUrl.addOnSuccessListener {
+                    it?.let {
+                        img = it
+                        Toast.makeText(this, "Imagen subida...${img}", Toast.LENGTH_SHORT).show()
+                        binding.progressBar.visibility = View.GONE
+                    }
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.d(TAG, e.message.toString())
+                binding.progressBar.visibility = View.GONE
+            }
     }
 
     private fun firebaseAuthWithGoogle(idToken: String) {
@@ -240,11 +276,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUI(user: FirebaseUser?) {
         user?.let {
-            icLogin.setIcon(R.drawable.ic_baseline_exit_to_app_24)
-            Toast.makeText(this, "user: ${user.uid}, email: ${user.email}", Toast.LENGTH_SHORT)
-                .show()
+            binding.content.tvUser.visibility = View.VISIBLE
+            binding.content.tvUser.text = "Usuario: ${user.email}"
+            binding.btnUpload.visibility = View.VISIBLE
         } ?: run {
-            icLogin.setIcon(R.drawable.ic_baseline_login_24)
+            binding.content.tvUser.visibility = View.GONE
+            binding.btnUpload.visibility = View.GONE
         }
     }
 }

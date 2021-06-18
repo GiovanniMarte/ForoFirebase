@@ -15,6 +15,8 @@ data class Tema(
 
 data class Post(
     var id: String,
+    var uid: String,
+    var email: String,
     var fecha: String,
     var post: String
 )

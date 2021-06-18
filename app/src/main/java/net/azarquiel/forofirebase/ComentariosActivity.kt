@@ -10,6 +10,8 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
 import net.azarquiel.forofirebase.adapter.PostAdapter
 import net.azarquiel.forofirebase.databinding.ActivityComentariosBinding
 import net.azarquiel.forofirebase.model.Post
@@ -21,6 +23,9 @@ import kotlin.collections.HashMap
 
 class ComentariosActivity : AppCompatActivity() {
 
+    private lateinit var storageRef: StorageReference
+    private lateinit var email: String
+    private lateinit var uid: String
     private lateinit var tema: Tema
     private var posts: ArrayList<Post> = ArrayList()
     private lateinit var adapter: PostAdapter
@@ -32,17 +37,16 @@ class ComentariosActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityComentariosBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
         db = FirebaseFirestore.getInstance()
         tema = intent.getSerializableExtra("tema") as Tema
+        uid = intent.getSerializableExtra("uid") as String
+        email = intent.getSerializableExtra("email") as String
 
         initRV()
         setListener()
-        getUserData()
+
         binding.fabComments.setOnClickListener { showDialog() }
-    }
-
-    private fun getUserData() {
-
     }
 
     private fun initRV() {
@@ -60,6 +64,7 @@ class ComentariosActivity : AppCompatActivity() {
 
             if (snapshot != null) {
                 documentToList(snapshot.documents)
+                posts.sortBy { post -> post.fecha }
                 adapter.setPosts(posts)
             }
         }
@@ -70,6 +75,8 @@ class ComentariosActivity : AppCompatActivity() {
         documents.forEach { d ->
             val post = Post(
                 d["id"] as String,
+                d["uid"] as String,
+                d["email"] as String,
                 d["fecha"] as String,
                 d["post"] as String
             )
@@ -87,7 +94,6 @@ class ComentariosActivity : AppCompatActivity() {
             .setPositiveButton("Añadir") { dialog, _ ->
 
                 val texto = etPost.text.toString()
-
                 addPost(texto)
 
                 dialog.dismiss()
@@ -102,6 +108,8 @@ class ComentariosActivity : AppCompatActivity() {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
         val date = sdf.format(Date())
         post["id"] = id
+        post["uid"] = uid
+        post["email"] = email
         post["fecha"] = date
         post["post"] = texto
         db.collection("temas").document(tema.id).collection("posts").document(id).set(post)
